@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.plccommandcenter.legacy.ab-monitor</string>
+    <string>__LABEL__</string>
     <key>ProgramArguments</key>
     <array>
         <string>__PYTHON__</string>

@@ -408,6 +408,7 @@ class Supervisor:
             raise SystemExit('database unavailable')
         log.info('PLCCommandCenter poller v2 starting - db=%s interval=%ss dry_run=%s ack_file=%s',
                  self.db_path or settings.DB_PATH, self.interval, settings.DRY_RUN, settings.ACK_FILE)
+        record_chat_db_access(conn)
         self.alerter.start()
         if not self.once:
             self.requests = RequestWorker(self.alerter, db_path=self.db_path)
@@ -459,6 +460,37 @@ def setup_logging():
     logging.getLogger('pycomm3').setLevel(logging.CRITICAL)
     logging.getLogger('snap7').setLevel(logging.WARNING)
     logging.getLogger('pymodbus').setLevel(logging.WARNING)
+
+
+def check_chat_db_access(path=None):
+    """Can this process read the Messages database? (needs Full Disk Access on macOS)
+    -> 'ok' | 'missing' | 'denied: <error>'."""
+    import sqlite3
+    path = path or settings.CHAT_DB_PATH
+    if not os.path.exists(path):
+        return 'missing'
+    try:
+        c = sqlite3.connect('file:%s?mode=ro' % path, uri=True, timeout=5)
+        try:
+            c.execute('SELECT COUNT(*) FROM chat').fetchone()
+        finally:
+            c.close()
+        return 'ok'
+    except Exception as e:
+        return 'denied: %s' % e
+
+
+def record_chat_db_access(conn, path=None):
+    """Log + store the result in app_settings.fda_status (read by the installer to confirm Full Disk Access)."""
+    status = check_chat_db_access(path)
+    (log.info if status == 'ok' else log.warning)('Messages database (%s) readable: %s%s', path or settings.CHAT_DB_PATH,
+        status, '' if status == 'ok' else ' - iMessage replies cannot acknowledge alarms until Full Disk Access is granted')
+    try:
+        dbmod.set_setting('fda_status', json.dumps({'status': status, 'python': sys.executable,
+                                                    'checked_at': time.strftime('%Y-%m-%d %H:%M:%S')}), conn=conn)
+    except Exception as e:
+        log.error('could not store fda_status: %s', e)
+    return status
 
 
 def main(argv=None):

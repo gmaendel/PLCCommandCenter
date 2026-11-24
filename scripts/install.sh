@@ -19,8 +19,7 @@ PYTHON="${PYTHON:-/usr/bin/python3}"
 VENV="$PROJECT_DIR/venv"
 LA_DIR="$HOME/Library/LaunchAgents"
 RENDER_DIR="$PROJECT_DIR/launchd/rendered"
-NEW_LABELS="com.plccommandcenter.poller com.plccommandcenter.web"
-OLD_LABELS="com.plccommandcenter.legacy.pump_dashboard com.plccommandcenter.legacy.pump_monitor com.plccommandcenter.legacy.modbus-monitor com.plccommandcenter.legacy.siemens_monitor com.plccommandcenter.legacy.ab-monitor"
+LEGACY_NAMES="pump_dashboard pump_monitor modbus-monitor siemens_monitor ab-monitor"
 DOMAIN="gui/$(id -u)"
 
 LOAD=1; REPLACE=0; TESTS=1; AUTO_RB=1; VERIFY_TIMEOUT=150
@@ -39,6 +38,11 @@ done
 [ "$(id -u)" != "0" ] || { echo "Run as your normal user, not root." >&2; exit 1; }
 is_loaded() { launchctl print "$DOMAIN/$1" >/dev/null 2>&1; }
 env_get() { { grep -E "^[[:space:]]*(export[[:space:]]+)?$1=" "$PROJECT_DIR/.env" 2>/dev/null || true; } | tail -1 | cut -d= -f2- | tr -d '"'"'" ; }
+# launchd label prefix: PLCCC_LABEL_PREFIX (environment or .env), default com.plccommandcenter
+PREFIX="${PLCCC_LABEL_PREFIX:-$(env_get PLCCC_LABEL_PREFIX)}"; PREFIX="${PREFIX:-com.plccommandcenter}"
+case "$PREFIX" in *[!A-Za-z0-9._-]*|"") echo "Invalid PLCCC_LABEL_PREFIX: $PREFIX" >&2; exit 2 ;; esac
+NEW_LABELS="$PREFIX.poller $PREFIX.web"
+OLD_LABELS=""; for N in $LEGACY_NAMES; do OLD_LABELS="$OLD_LABELS $PREFIX.legacy.$N"; done
 
 echo "==> Project: $PROJECT_DIR"
 "$PYTHON" --version >/dev/null || { echo "Python not found at $PYTHON (xcode-select --install)" >&2; exit 1; }
@@ -119,13 +123,13 @@ fi
 PYAPP="$("$VPY" -c 'import sys,os;print(os.path.join(sys.base_prefix,"Resources/Python.app/Contents/MacOS/Python"))')"
 SITE="$("$VPY" -c 'import site;print(site.getsitepackages()[0])')"
 [ -x "$PYAPP" ] || { echo "!! $PYAPP not found (needed for Full Disk Access)" >&2; exit 1; }
-render() {  # template -> out
-  sed -e "s#__PROJECT_DIR__#$PROJECT_DIR#g" -e "s#__PYTHON__#$VPY#g" -e "s#__PYAPP__#$PYAPP#g" \
+render() {  # template out label
+  sed -e "s#__LABEL__#$3#g" -e "s#__PROJECT_DIR__#$PROJECT_DIR#g" -e "s#__PYTHON__#$VPY#g" -e "s#__PYAPP__#$PYAPP#g" \
       -e "s#__SITE_PACKAGES__#$SITE#g" "$1" > "$2"
   plutil -lint "$2" >/dev/null
 }
-for L in $NEW_LABELS; do render "$PROJECT_DIR/launchd/$L.plist.template" "$RENDER_DIR/$L.plist"; done
-for L in $OLD_LABELS; do render "$PROJECT_DIR/launchd/legacy/$L.plist.template" "$RENDER_DIR/$L.plist"; done
+for N in poller web; do render "$PROJECT_DIR/launchd/$N.plist.template" "$RENDER_DIR/$PREFIX.$N.plist" "$PREFIX.$N"; done
+for N in $LEGACY_NAMES; do render "$PROJECT_DIR/launchd/legacy/$N.plist.template" "$RENDER_DIR/$PREFIX.legacy.$N.plist" "$PREFIX.legacy.$N"; done
 echo "==> Rendered plists in $RENDER_DIR (v2 + legacy v1 for rollback)"
 echo "    iMessage 'ack' replies need Full Disk Access for: ${PYAPP%/Contents/MacOS/Python}"
 echo "    (System Settings > Privacy & Security > Full Disk Access - see docs/SETUP.md)"
@@ -164,8 +168,15 @@ echo "==> Loading v2 agents"
 mkdir -p "$LA_DIR"
 for L in $NEW_LABELS; do
   launchctl bootout "$DOMAIN/$L" 2>/dev/null || true
+  # bootout returns before the old job is gone; bootstrapping too early fails with "5: Input/output error"
+  for _ in $(seq 1 20); do is_loaded "$L" || break; sleep 0.5; done
   cp "$RENDER_DIR/$L.plist" "$LA_DIR/$L.plist"
-  launchctl bootstrap "$DOMAIN" "$LA_DIR/$L.plist"
+  loaded=0
+  for _ in 1 2 3 4 5; do
+    if launchctl bootstrap "$DOMAIN" "$LA_DIR/$L.plist" 2>/dev/null; then loaded=1; break; fi
+    sleep 2
+  done
+  [ "$loaded" = 1 ] || { echo "!! could not load $L (launchctl bootstrap failed 5 times)" >&2; exit 1; }
   echo "   loaded $L"
 done
 
@@ -177,7 +188,7 @@ START_UTC="$(date -u '+%Y-%m-%d %H:%M:%S')"
 ok=0; end=$(( $(date +%s) + VERIFY_TIMEOUT ))
 while [ "$(date +%s)" -lt "$end" ]; do
   sleep 5
-  PID="$(launchctl print "$DOMAIN/com.plccommandcenter.poller" 2>/dev/null | awk '/^[[:space:]]*pid =/{print $3; exit}')"
+  PID="$(launchctl print "$DOMAIN/$PREFIX.poller" 2>/dev/null | awk '/^[[:space:]]*pid =/{print $3; exit}')"
   HB_PID="$(sqlite3 "$DB" "SELECT pid FROM service_status WHERE name='poller' AND heartbeat >= '$START_UTC'" 2>/dev/null || true)"
   MISSING="$(sqlite3 "$DB" "SELECT COUNT(*) FROM devices d LEFT JOIN device_runtime r ON r.device_id=d.id WHERE d.enabled=1 AND (r.updated_at IS NULL OR r.updated_at < '$START_UTC')" 2>/dev/null || echo 99)"
   WEB="$(curl -fsS -m 5 "http://127.0.0.1:$PORT/healthz" 2>/dev/null || true)"

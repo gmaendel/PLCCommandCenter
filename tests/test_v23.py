@@ -309,3 +309,30 @@ class VersionTest(unittest.TestCase):
     def test_version(self):
         from plccc import __version__
         self.assertEqual(__version__, '2.3.0')
+
+
+class FullDiskAccessCheckTests(unittest.TestCase):
+    def test_missing_ok_denied(self):
+        from plccc import poller
+        self.assertEqual(poller.check_chat_db_access(os.path.join(TMP, 'nope.db')), 'missing')
+        good = os.path.join(TMP, 'fake_chat.db')
+        if os.path.exists(good):
+            os.remove(good)
+        c = sqlite3.connect(good)
+        c.execute('CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, display_name TEXT)')
+        c.commit()
+        c.close()
+        self.assertEqual(poller.check_chat_db_access(good), 'ok')
+        bad = os.path.join(TMP, 'not_a_db.db')
+        with open(bad, 'wb') as f:
+            f.write(b'this is not sqlite' * 100)
+        self.assertTrue(poller.check_chat_db_access(bad).startswith('denied: '))
+
+    def test_status_recorded_for_installer(self):
+        from plccc import poller
+        conn = dbmod.connect()
+        try:
+            self.assertEqual(poller.record_chat_db_access(conn, os.path.join(TMP, 'nope.db')), 'missing')
+            self.assertEqual(json.loads(dbmod.get_setting('fda_status', conn=conn))['status'], 'missing')
+        finally:
+            conn.close()

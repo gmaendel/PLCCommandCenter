@@ -18,61 +18,63 @@ and press Return.
   left on all the time and connected to the same network as your PLCs.
 - An **Apple ID** signed in to the Messages app on that Mac (for iMessage alerts).
 - Optional: a **Telegram** account (for Telegram alerts).
-- Apple's free **Command Line Tools**, which include the Python the app uses. In Terminal:
 
-  ```
-  xcode-select --install
-  ```
+That's all. The installer downloads everything else (Apple's free Command Line Tools, Python
+packages). Homebrew is **not** needed.
 
-  Click **Install** in the window that pops up and wait for it to finish. (If it says they're already
-  installed, you're good.) Check it worked: `python3 --version` should print `Python 3.9` or newer.
+## 2. Run the one-line installer
 
-Keep the Mac awake and logged in, because the app runs in your user account:
-
-- **System Settings → Energy** (or *Energy Saver*): turn on **Prevent automatic sleeping…** and
-  **Start up automatically after a power failure**.
-- **System Settings → Users & Groups → Automatically log in as**: pick your user. After a power cut, the
-  Mac comes back by itself and the alarms start again.
-
-## 2. Get the project onto the Mac
-
-Put the project folder in your home folder and name it **`PLCCommandCenter`**. Either:
-
-- **Download it with git** (if you were given a link):
-
-  ```
-  git clone <the link you were given> ~/PLCCommandCenter
-  ```
-
-- **Or unzip** the `PLCCommandCenter.zip` you were given, and drag the folder into your home folder
-  (the one with the house icon in Finder).
-
-> **For whoever shares the project:** send a clean copy, not your live folder. From your own project
-> folder, run `git archive --format=zip -o ~/Desktop/PLCCommandCenter.zip HEAD`. That zip never
-> includes your `.env` (passwords and tokens), your database, your devices, your dashboard layout,
-> or your logs.
-
-## 3. Run the installer
-
-In Terminal:
+Open **Terminal** on the Mac mini, paste this line, and press Return:
 
 ```
-cd ~/PLCCommandCenter
-scripts/install.sh
+curl -fsSL https://raw.githubusercontent.com/gmaendel/PLCCommandCenter/main/install.sh | bash
 ```
 
-The installer:
+It walks you through everything, step by step:
 
-1. sets up its own private Python environment and downloads what it needs (a minute or two),
-2. **asks you to choose a dashboard password**. Type it twice. Nothing shows on screen while you
-   type; that's normal. You need this password to change settings on the dashboard.
-3. runs its self-tests, which never send any real messages,
-4. creates an empty database, starts two background services (the *poller*, which talks to the PLCs
-   and sends alarms, and the *web* dashboard), and checks that both are running.
+1. **Checks your Mac** (macOS version, Apple silicon or Intel).
+2. **Installs Apple's Command Line Tools** if they're missing. A window pops up: click **Install**,
+   accept the license and wait (5-20 minutes). The installer waits for it and carries on by itself.
+3. **Downloads PLC Command Center** into `~/PLCCommandCenter` (press Return to accept, or type another folder).
+4. **Asks you to choose a dashboard password**. Type it twice; nothing shows on screen while you type,
+   and that's normal. You need this password to change settings on the dashboard.
+5. **Installs the Python packages**, runs its self-tests (they never send real messages), creates an
+   empty database and starts the two background services: the *poller*, which talks to the PLCs and
+   sends alarms, and the *web* dashboard. Both start again by themselves whenever the Mac restarts.
+6. **Offers to keep the Mac awake** and make it start again after a power cut (it asks for your Mac
+   password for that).
+7. **Full Disk Access.** It opens the right page in System Settings and shows *Python.app* in Finder, so
+   you can drag it into the list (details in section 5c). When you press Return it checks that it worked.
+8. **Opens Messages** so you can sign in and make the alarm group (section 5), then opens the dashboard.
 
-When it finishes it prints **`v2 is live`** and the dashboard address. The two services start again
-by themselves whenever the Mac restarts. (They're named `com.plccommandcenter.poller` and
-`com.plccommandcenter.web`. The names don't matter, so leave them as they are.)
+At the end it prints a summary with the dashboard address, e.g. `http://192.168.1.50:8085`.
+
+**Updating later:** run the same line again. It downloads the newest version and keeps your settings,
+devices and history. **Removing it:** `~/PLCCommandCenter/install.sh --uninstall` (your files stay;
+delete the folder to remove everything).
+
+Also turn on **automatic login** (System Settings → Users & Groups → *Automatically log in as*), so that
+after a power cut the Mac comes back by itself and the alarms start again.
+
+<details><summary>Other ways to install (no internet one-liner, advanced options)</summary>
+
+- **From a copy you were given** (git clone or an unzipped folder): open Terminal in that folder and run
+  `./install.sh`. It installs from that folder.
+- **Options:** `--dir FOLDER`, `--port 8090`, `--yes` (no questions; give the password with
+  `--password-file FILE` or `PLCCC_DASHBOARD_PASSWORD=...`), `--no-power`, `--no-open`, `--dry-run`
+  (show what it would do), `--label-prefix` (run a second copy side by side). `./install.sh --help` lists them.
+  With curl: `curl -fsSL …/install.sh | bash -s -- --dir ~/PLC2 --port 8090`.
+- **For whoever shares the project:** point friends at the GitHub page, or send a clean zip made with
+  `git archive --format=zip -o ~/Desktop/PLCCommandCenter.zip HEAD`. That never includes your `.env`
+  (passwords and tokens), your database, your devices, your dashboard layout, or your logs.
+- The lower-level `scripts/install.sh` (used by the installer) still works on its own.
+
+</details>
+
+## 3. (Done by the installer)
+
+The background services are named `com.plccommandcenter.poller` and `com.plccommandcenter.web`.
+You don't need to touch them; the commands below use those names in case you ever need to restart one.
 
 ## 4. Open the dashboard
 

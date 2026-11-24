@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.plccommandcenter.poller</string>
+    <string>__LABEL__</string>
     <!-- Unified PLC poller + alerter. Runs the CommandLineTools Python.app binary directly
          because Full Disk Access (needed to read ~/Library/Messages/chat.db for 'ack')
          is granted to Python.app, not to the venv shim. Venv packages come via PYTHONPATH. -->

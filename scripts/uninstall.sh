@@ -4,7 +4,9 @@
 set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LA_DIR="$HOME/Library/LaunchAgents"
-for L in com.plccommandcenter.poller com.plccommandcenter.web com.plccommandcenter.legacy.pump_dashboard com.plccommandcenter.legacy.pump_monitor com.plccommandcenter.legacy.modbus-monitor com.plccommandcenter.legacy.siemens_monitor com.plccommandcenter.legacy.ab-monitor; do
+env_get() { { grep -E "^[[:space:]]*(export[[:space:]]+)?$1=" "$PROJECT_DIR/.env" 2>/dev/null || true; } | tail -1 | cut -d= -f2- | tr -d '"'"'" ; }
+PREFIX="${PLCCC_LABEL_PREFIX:-$(env_get PLCCC_LABEL_PREFIX)}"; PREFIX="${PREFIX:-com.plccommandcenter}"
+for L in $PREFIX.poller $PREFIX.web $PREFIX.legacy.pump_dashboard $PREFIX.legacy.pump_monitor $PREFIX.legacy.modbus-monitor $PREFIX.legacy.siemens_monitor $PREFIX.legacy.ab-monitor; do
   DEST="$LA_DIR/$L.plist"
   if [ -f "$DEST" ] && grep -q "$PROJECT_DIR/" "$DEST"; then
     launchctl bootout "gui/$(id -u)/$L" 2>/dev/null || true

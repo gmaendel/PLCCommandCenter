@@ -32,21 +32,28 @@ Built for farm and small-plant use (pumps, tanks, wells, generators) where a ful
 
 ## Quick start
 
-On a Mac mini with macOS 13 or newer:
+On a Mac mini with macOS 13 or newer, open Terminal and run:
 
 ```
-xcode-select --install                        # Apple's Command Line Tools (includes Python 3.9+)
-git clone https://github.com/gmaendel/PLCCommandCenter.git ~/PLCCommandCenter
-cd ~/PLCCommandCenter
-scripts/install.sh                            # asks for a dashboard password, installs and starts everything
+curl -fsSL https://raw.githubusercontent.com/gmaendel/PLCCommandCenter/main/install.sh | bash
 ```
 
-Then open **http://localhost:8085** (or `http://<mac-name>.local:8085` from your phone) and add your PLCs
-under **Devices**.
+The installer is safe to re-run, and re-running it is also how you update. It takes care of:
+- Apple's Command Line Tools (Python 3.9+ and git) and the Python packages; Homebrew is not needed.
+- The dashboard password.
+- The two background services.
+- Optional never-sleep and auto-restart power settings.
+- A guided Full Disk Access step (so iMessage replies can acknowledge alarms) that it then verifies.
+- Opening Messages and the dashboard at the end.
 
-**The full step-by-step guide is in [docs/SETUP.md](docs/SETUP.md).** It covers the Full Disk Access and
-Messages permissions iMessage acks need, the iMessage group, Telegram setup, adding each PLC type,
-the dashboard password, and the home-screen icon. It is written for non-programmers.
+Then add your PLCs under **Devices** at `http://<mac-ip>:8085`.
+
+From a cloned or unzipped copy, run `./install.sh` instead. `./install.sh --help` lists the options:
+`--dir`, `--port`, `--yes` with `--password-file`, `--no-power`, `--dry-run` and `--uninstall`.
+
+**The full step-by-step guide is in [docs/SETUP.md](docs/SETUP.md).** It covers the iMessage group,
+Telegram setup, adding each PLC type, the dashboard password and the home-screen icon. It is written
+for non-programmers.
 
 ## How it works
 
@@ -61,8 +68,9 @@ app/plccc/
   poller.py    supervisor + one worker thread per device; picks up device/tag edits without a restart
   web.py       Flask app + JSON API; templates/ and static/ (Chart.js etc. vendored, works offline)
   db.py        SQLite connection + additive migrations
-scripts/       install.sh, uninstall.sh, export_data.sh (backup), dryrun_smoke.sh, ...
-launchd/       plist templates rendered by install.sh
+install.sh     one-step installer/updater (Command Line Tools, venv, services, permissions guide)
+scripts/       install.sh (venv + services), uninstall.sh, export_data.sh (backup), dryrun_smoke.sh, ...
+launchd/       plist templates rendered by scripts/install.sh (label prefix PLCCC_LABEL_PREFIX)
 ```
 
 The poller runs under the Command Line Tools **Python.app** binary, with the venv's packages on
@@ -72,7 +80,7 @@ Bot API over HTTPS; nothing reads Telegram replies.
 
 `app/pump_monitor.py`, `modbus_monitor.py`, `siemens_monitor.py`, `ab_monitor.py` and `pump_web.py`
 are the original single-purpose v1 scripts. They are kept so `tests/test_v1_equivalence.py` can run
-them side by side with v2. `scripts/rollback.sh` and `install.sh --replace` exist only for migrating an
+them side by side with v2. `scripts/rollback.sh` and `scripts/install.sh --replace` exist only for migrating an
 old v1 install; a new install never needs them.
 
 ## Configuration

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.plccommandcenter.poller</string>
+    <!-- Unified PLC poller + alerter. Runs the CommandLineTools Python.app binary directly
+         because Full Disk Access (needed to read ~/Library/Messages/chat.db for 'ack')
+         is granted to Python.app, not to the venv shim. Venv packages come via PYTHONPATH. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYAPP__</string>
+        <string>-u</string>
+        <string>__PROJECT_DIR__/app/plccc_poller.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_DIR__</string>
+    <key>StandardOutPath</key>
+    <string>__PROJECT_DIR__/logs/plccc_poller.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_DIR__/logs/plccc_poller.error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>PYTHONPATH</key>
+        <string>__SITE_PACKAGES__</string>
+        <key>PLCCC_LOG_FILE</key>
+        <string>__PROJECT_DIR__/logs/plccc_poller.log</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>ExitTimeOut</key>
+    <integer>40</integer>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>

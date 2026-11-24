@@ -1,0 +1,36 @@
+# Secrets
+.env
+.env.*
+!.env.example
+config.local.json
+
+# Runtime data (copy over at cutover, never commit)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+data/*
+!data/.gitkeep
+!data/pump_config.example.json
+
+# Logs
+logs/*
+!logs/.gitkeep
+*.log
+
+# Python / venv
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Backups / exports
+*.bak
+*.bak-*
+backups/
+
+# Rendered launchd plists
+launchd/rendered/
+
+.DS_Store

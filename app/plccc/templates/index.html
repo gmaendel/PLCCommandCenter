@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PLC Command Center</title>
+<meta name="description" content="Farm water PLC monitoring and alarms">
+<meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PLC Center">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=3">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=3">
+<link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}?v={{ version }}">
+</head>
+<body>
+<header class="appbar">
+  <div class="brand">
+    <img src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="" width="30" height="30">
+    <div>
+      <div class="brand-title">PLC Command Center</div>
+      <div class="brand-sub" id="subtitle">Loading…</div>
+    </div>
+  </div>
+  <div class="appbar-actions">
+    <span class="pill" id="sysPill" title="Poller status"><span class="dot"></span><span class="pill-text">…</span></span>
+    <button class="icon-btn" id="lockBtn" aria-label="Unlock editing" title="Unlock editing">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path id="lockPath" fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 0 1 6 0v3H9Z"/></svg>
+    </button>
+  </div>
+</header>
+
+<nav class="tabbar" id="tabbar" aria-label="Sections">
+  <button data-view="overview" class="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg><span>Overview</span></button>
+  <button data-view="trends"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.5 9 11l4 4 8-9 1.4 1.4L13 18l-4-4-4.6 5L3 17.5Z"/></svg><span>Trends</span></button>
+  <button data-view="devices"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v6H4V4Zm0 10h16v6H4v-6Zm3-8v2h2V6H7Zm0 10v2h2v-2H7Z"/></svg><span>Devices</span></button>
+  <button data-view="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2.1-1.6ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" transform="translate(-1 0)"/></svg><span>Settings</span></button>
+</nav>
+
+<main id="main">
+  <div id="banners"></div>
+
+  <!-- OVERVIEW -->
+  <section id="view-overview" class="view active" aria-label="Overview">
+    <div id="alarmList"></div>
+    <div id="ovEditTop"></div>
+    <div id="ovCharts"></div>
+    <div id="ovCards">
+      <h2 class="section-title">Live values</h2>
+      <div class="tiles"><div class="card skeleton"></div><div class="card skeleton"></div></div>
+    </div>
+    <div id="ovEditBottom"></div>
+    <h2 class="section-title">Devices</h2>
+    <div class="chips" id="deviceChips"></div>
+  </section>
+
+  <!-- TRENDS -->
+  <section id="view-trends" class="view" aria-label="Trends">
+    <div class="card">
+      <div class="form-grid">
+        <label class="field"><span>Tag</span><select id="trendTag"></select></label>
+        <label class="field"><span>Compare with</span><select id="trendTag2"><option value="">None</option></select></label>
+      </div>
+      <div class="seg" id="rangeSeg" role="tablist">
+        <button data-h="1" class="active">1H</button><button data-h="6">6H</button><button data-h="24">24H</button>
+        <button data-h="168">7D</button><button data-h="1440">60D</button><button data-h="custom">Custom</button>
+      </div>
+      <div class="custom-range" id="customRange" hidden>
+        <label class="field"><span>From</span><input type="datetime-local" id="startTime"></label>
+        <label class="field"><span>To</span><input type="datetime-local" id="endTime"></label>
+        <button class="btn primary" id="applyRange">Apply</button>
+      </div>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-head">
+        <div><div class="chart-title" id="chartTitle">—</div><div class="muted small" id="chartSub"></div></div>
+        <button class="btn ghost small" id="resetZoom">Reset zoom</button>
+      </div>
+      <div class="chart-wrap"><canvas id="trendChart" aria-label="Trend chart" role="img"></canvas></div>
+      <div class="muted small hint">Pinch or drag to zoom &amp; pan · times shown in your local time</div>
+    </div>
+    <div class="stats" id="trendStats"></div>
+  </section>
+
+  <!-- DEVICES -->
+  <section id="view-devices" class="view" aria-label="Devices">
+    <div class="row-between">
+      <h2 class="section-title flush">PLCs &amp; data sources</h2>
+      <button class="btn primary" id="addDeviceBtn">+ Device</button>
+    </div>
+    <div id="deviceList"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="view-settings" class="view" aria-label="Settings">
+    <div class="card">
+      <h3>Editing</h3>
+      <p class="muted" id="lockState">Locked. Unlock with the dashboard password to change settings.</p>
+      <button class="btn primary" id="unlockBtn2">Unlock</button>
+    </div>
+    <div class="card" id="thresholdCard">
+      <h3>Recharge pump alarm threshold</h3>
+      <p class="muted small">Alarm (with escalation) when flow drops below this value.</p>
+      <div class="inline-form">
+        <div class="stepper">
+          <button class="btn ghost" data-step="-100" aria-label="Decrease">−</button>
+          <input type="number" id="thresholdInput" inputmode="numeric" min="0" step="100">
+          <button class="btn ghost" data-step="100" aria-label="Increase">+</button>
+        </div>
+        <span class="muted">GPM</span>
+        <button class="btn primary" id="saveThreshold">Save</button>
+      </div>
+    </div>
+    <div class="card" id="imsgCard">
+      <h3>iMessage alarm group</h3>
+      <p class="muted small">Alarms are sent to this Messages group, and any reply in it acknowledges a pump alarm. To use a new name, rename the group in the Messages app first, then type the exact same name here.</p>
+      <label class="field"><span>Group chat name</span><input id="imsgName" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="100" placeholder="PLC Alarms"></label>
+      <div class="imsg-status" id="imsgStatus"></div>
+      <div class="imsg-actions">
+        <button class="btn primary" id="imsgSave">Save</button>
+        <button class="btn ghost" id="imsgCheck">Check</button>
+        <button class="btn ghost" id="imsgSend">Send test message</button>
+      </div>
+      <p class="muted small" id="imsgTest"></p>
+      <button class="btn ghost small" id="imsgDefault" hidden>Use default</button>
+    </div>
+    <div class="card" id="tgCard">
+      <div class="card-title-row"><h3>Telegram alerts</h3>
+        <label class="switch" aria-label="Send alarms to Telegram"><input type="checkbox" id="tgEnabled"><span></span></label></div>
+      <p class="muted small" id="tgSummary">Loading…</p>
+      <details class="tg-help" id="tgHelp">
+        <summary>How to set up Telegram (5 minutes)</summary>
+        <ol>
+          <li>In Telegram, open a chat with <b>@BotFather</b>, send <code>/newbot</code> and follow the prompts. It gives you a <b>bot token</b> that looks like <code>123456789:AAH…</code>.</li>
+          <li>Paste the token below and tap <b>Save token</b>.</li>
+          <li>Make a Telegram group for your alarms (or use one you have), add your new bot to it, then <b>send any message</b> in that group.</li>
+          <li>Tap <b>Find my chat</b> and tap <b>Add</b> next to your group. (A private chat with the bot works too: just send the bot a message first.)</li>
+          <li>Tap <b>Send test</b>. The test message should show up in Telegram within a few seconds.</li>
+        </ol>
+      </details>
+      <label class="field"><span>Bot token</span>
+        <input id="tgToken" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="100" placeholder="Paste the token from @BotFather">
+        <small class="muted" id="tgTokenHint"></small></label>
+      <div class="imsg-actions">
+        <button class="btn primary" id="tgSaveToken">Save token</button>
+        <button class="btn ghost" id="tgFind">Find my chat</button>
+      </div>
+      <div id="tgFound" class="list tg-found"></div>
+      <div class="tg-sub">Send alarms to</div>
+      <div id="tgChats" class="list"></div>
+      <div class="inline-form tg-add">
+        <input id="tgChatId" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="40" placeholder="Chat ID, e.g. -1001234567890">
+        <button class="btn ghost" id="tgAddChat">Add</button>
+      </div>
+      <div class="imsg-actions"><button class="btn ghost" id="tgTest">Send test</button></div>
+      <p class="muted small" id="tgResult"></p>
+    </div>
+    <div class="card">
+      <h3>Alarm switches</h3>
+      <p class="muted small">Turning a switch off stops that tag's texts and Telegram alerts.</p>
+      <div id="alarmSwitches" class="list"></div>
+    </div>
+    <div class="card">
+      <h3>Recent alerts</h3>
+      <div id="alertLog" class="list"></div>
+    </div>
+    <div class="card">
+      <h3>System</h3>
+      <dl class="kv" id="sysInfo"></dl>
+      <p class="small"><a href="/classic">Open the classic dashboard</a></p>
+    </div>
+  </section>
+</main>
+
+<div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h3 id="sheetTitle"></h3><button class="icon-btn" id="sheetClose" aria-label="Close">✕</button></div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>window.PLCCC = {version: "{{ version }}", dryRun: {{ 'true' if dry_run else 'false' }}};</script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs-adapter-date-fns.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/hammer.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs-plugin-zoom.min.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js') }}?v={{ version }}"></script>
+</body>
+</html>
